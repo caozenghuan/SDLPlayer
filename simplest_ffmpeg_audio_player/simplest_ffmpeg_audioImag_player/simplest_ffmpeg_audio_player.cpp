@@ -22,15 +22,19 @@ extern "C"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
-#include "SDL2/SDL.h"
+#include "SDL/SDL.h"
 
-#include "SDL2/SDL_video.h"
-#include "SDL2/SDL_thread.h"
+#include "SDL/SDL_video.h"
+#include "SDL/SDL_thread.h"
 
 #include <libswresample/swresample.h>
 };
 
 #include "CycleBuffer.h"
+
+//隐藏控制台EXE黑框
+#pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"" )
+
 //Refresh
 #define SFM_REFRESH_EVENT  (SDL_USEREVENT + 1)
 
@@ -86,7 +90,7 @@ int main(int argc, char* argv[])
 	//打开输入流
 	AVFrame* f = av_frame_alloc();
 	avformat_network_init();
-	printf("%s", avcodec_configuration());
+	printf("%s", avcodec_configuration());//输出配置
 
 	char filepath[] = "rtmp://live.hkstv.hk.lxdns.com/live/hks";//
 
@@ -96,14 +100,16 @@ int main(int argc, char* argv[])
 
 
 	ret = avformat_open_input(&fctx, filepath, NULL, NULL);
-	if (ret != 0){
+	if (ret != 0)
+	{
 		printf("Couldn't open input stream.\n");
 		exit(2);
 	}
 
 
-	ret = avformat_find_stream_info(fctx, NULL);
-	if (ret < 0){
+	ret = avformat_find_stream_info(fctx, NULL);//从媒体数据包文件获取流信息
+	if (ret < 0)
+	{
 		printf("can't find stream info ");
 		exit(3);
 	}
@@ -112,18 +118,22 @@ int main(int argc, char* argv[])
 	//查找视频流和音频流的编号
 	int video_stream, audio_stream;
 	int find_n = 0;
-	for (int i = 0; i < fctx->nb_streams; i++){
-		if (fctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO){
+	for (int i = 0; i < fctx->nb_streams; i++)
+	{
+		if (fctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+		{
 			video_stream = i;
 			find_n++;
 			printf("find video stream id %d", video_stream);
 		}
-		if (fctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO){
+		if (fctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+		{
 			audio_stream = i;
 			find_n++;
 			printf("find audio stream id %d", audio_stream);
 		}
-		if (find_n >= 2){
+		if (find_n >= 2)//音频和视频都有的话就Break
+		{
 			break;
 		}
 	}
@@ -161,6 +171,17 @@ int main(int argc, char* argv[])
 	}
 
 	//初始化显示相关
+	video_codec_ctx->width = 960;
+	video_codec_ctx->height = 576;
+	video_codec_ctx->coded_width = 960;
+	video_codec_ctx->coded_height = 576;
+
+	video_codec_ctx->mv0_threshold = 525;
+	video_codec_ctx->me_penalty_compensation = 288;
+
+	//video_codec_ctx->mb_lmin = 288;
+	//video_codec_ctx->lmin = 288;
+
 	int screen_w = video_codec_ctx->width;
 	int screen_h = video_codec_ctx->height;
 
@@ -175,7 +196,7 @@ int main(int argc, char* argv[])
 
 	rect.w = screen_w;
 	rect.h = screen_h;
-	SDL_WM_SetCaption("Simple FFmpeg Player (SDL Update)", NULL);
+	SDL_WM_SetCaption("SDL Player(By CZH)", NULL);//窗口名称
 
 
 	struct SwsContext *img_convert_ctx = sws_getContext(video_codec_ctx->width, video_codec_ctx->height, 
@@ -223,28 +244,33 @@ int main(int argc, char* argv[])
 	//创建消息线程
 	SDL_Thread *video_tid = SDL_CreateThread(sfp_refresh_thread, NULL);
 	//
-
-
+	
 
 	//消息循环
 	SDL_Event e;
 	int got;
-	while (true) {
+	while (true) 
+	{
 		//Wait
 		SDL_WaitEvent(&e);
-		if (e.type == SFM_REFRESH_EVENT){
+		if (e.type == SFM_REFRESH_EVENT)
+		{
 			//------------------------------
 			SDL_PauseAudio(0);
-			while (true){
-				if (av_read_frame(fctx, packet) >= 0){
-					if (packet->stream_index == video_stream){
+			while (true)
+			{
+				if (av_read_frame(fctx, packet) >= 0)
+				{
+					if (packet->stream_index == video_stream)
+					{
 						ret = avcodec_decode_video2(video_codec_ctx, pFrame, &got, packet);
-						if (ret < 0){
+						if (ret < 0)
+						{
 							printf("Decode Error.\n");
 							return -1;
 						}
-						if (got){
-
+						if (got)
+						{
 							SDL_LockYUVOverlay(bmp);
 
 							pFrameYUV->data[0] = bmp->pixels[0];
@@ -256,7 +282,8 @@ int main(int argc, char* argv[])
 							pFrameYUV->linesize[2] = bmp->pitches[1];
 
 							sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data, pFrame->linesize, 0, video_codec_ctx->height, pFrameYUV->data, pFrameYUV->linesize);
-							for (int i = 0; i < 5000; i++){
+							for (int i = 0; i < 5000; i++)
+							{
 								bmp->pixels[0][i] = 0xff;
 							}
 							SDL_UnlockYUVOverlay(bmp);
@@ -267,9 +294,11 @@ int main(int argc, char* argv[])
 							break;
 						}
 					}
-					else if (packet->stream_index == audio_stream){
+					else if (packet->stream_index == audio_stream)
+					{
 						ret = avcodec_decode_audio4(audio_codec_ctx, audioFrame, &got, packet);
-						if (got > 0){
+						if (got > 0)
+						{
 							int rr = swr_convert(au_convert_ctx, &out_buffer, MAX_AUDIO_FRAME_SIZE, (const uint8_t **)audioFrame->data, audioFrame->nb_samples);
 
 							pSoundBuf->Write((char*)out_buffer, rr * 4);
@@ -278,7 +307,8 @@ int main(int argc, char* argv[])
 					}
 					av_free_packet(packet);
 				}
-				else{
+				else
+				{
 					//Exit Thread
 					thread_exit = 1;
 					break;

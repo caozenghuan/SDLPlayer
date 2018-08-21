@@ -74,7 +74,8 @@ void  fill_audio(void *udata,Uint8 *stream,int len){
 int main(int argc, char* argv[])
 {
 	//Init
-	if(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER)) {  
+	if(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER)) 
+	{  
 		printf( "Could not initialize SDL - %s\n", SDL_GetError()); 
 		return -1;
 	}
